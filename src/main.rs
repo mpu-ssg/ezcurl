@@ -17,16 +17,15 @@ use request::{HttpMethod, HttpRequest};
 use terminal::setup_terminal;
 use ui::draw;
 
-use crate::error::EzCurlError;
+use crate::error::EzcurlError;
 use crossterm::event::{self, Event};
 
-async fn run() -> Result<(), EzCurlError> {
-    let url = std::env::args().nth(1).ok_or(EzCurlError::MissingUrl)?;
+async fn run() -> Result<(), EzcurlError> {
+    let url = std::env::args().nth(1).unwrap_or_default();
 
-    let mut request = HttpRequest::new(HttpMethod::Post, url);
+    let mut request = HttpRequest::new(HttpMethod::Get, url);
     request.add_header("User-Agent", "ezcurl/0.1");
     request.add_header("Accept", "text/html");
-    request.set_body(br#"{"name":"ezcurl"}"#.to_vec());
 
     let client = HttpClient::new();
 

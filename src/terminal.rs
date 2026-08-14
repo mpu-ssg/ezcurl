@@ -5,11 +5,11 @@ use crossterm::{
 use ratatui::{Terminal, backend::CrosstermBackend};
 use std::io::{self, Stdout};
 
-use crate::error::EzCurlError;
+use crate::error::EzcurlError;
 
 pub type AppTerminal = Terminal<CrosstermBackend<Stdout>>;
 
-pub fn setup_terminal() -> Result<AppTerminal, EzCurlError> {
+pub fn setup_terminal() -> Result<AppTerminal, EzcurlError> {
     enable_raw_mode()?;
 
     let mut stdout = io::stdout();
@@ -21,7 +21,7 @@ pub fn setup_terminal() -> Result<AppTerminal, EzCurlError> {
     Ok(terminal)
 }
 
-pub fn exit_terminal(terminal: &mut AppTerminal) -> Result<(), EzCurlError> {
+pub fn exit_terminal(terminal: &mut AppTerminal) -> Result<(), EzcurlError> {
     disable_raw_mode()?;
 
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;

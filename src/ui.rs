@@ -7,7 +7,7 @@ use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Clear, Paragraph, Wrap},
+    widgets::{Block, BorderType, Borders, Clear, Paragraph, Wrap},
 };
 
 struct RequestAreas {
@@ -24,6 +24,14 @@ fn panel_style(app: &App, panel: Panel) -> Style {
             .add_modifier(Modifier::BOLD)
     } else {
         Style::default()
+    }
+}
+
+fn panel_border_type(app: &App, panel: Panel) -> BorderType {
+    if !app.history_open() && app.focused_panel() == panel {
+        BorderType::Thick
+    } else {
+        BorderType::Plain
     }
 }
 
@@ -95,7 +103,8 @@ fn render_request(frame: &mut Frame, app: &App, area: Rect) -> RequestAreas {
             Block::default()
                 .title("METHOD")
                 .borders(Borders::ALL)
-                .border_style(panel_style(app, Panel::Method)),
+                .border_style(panel_style(app, Panel::Method))
+                .border_type(panel_border_type(app, Panel::Method)),
         ),
         method_area,
     );
@@ -104,7 +113,8 @@ fn render_request(frame: &mut Frame, app: &App, area: Rect) -> RequestAreas {
             Block::default()
                 .title("URL")
                 .borders(Borders::ALL)
-                .border_style(panel_style(app, Panel::Url)),
+                .border_style(panel_style(app, Panel::Url))
+                .border_type(panel_border_type(app, Panel::Url)),
         ),
         url_area,
     );
@@ -112,7 +122,8 @@ fn render_request(frame: &mut Frame, app: &App, area: Rect) -> RequestAreas {
     let headers_block = Block::default()
         .title("HEADERS")
         .borders(Borders::ALL)
-        .border_style(panel_style(app, Panel::Headers));
+        .border_style(panel_style(app, Panel::Headers))
+        .border_type(panel_border_type(app, Panel::Headers));
     let headers_inner = headers_block.inner(headers_area);
     frame.render_widget(headers_block, headers_area);
     let header_columns =
@@ -166,7 +177,8 @@ fn render_request(frame: &mut Frame, app: &App, area: Rect) -> RequestAreas {
             Block::default()
                 .title("BODY")
                 .borders(Borders::ALL)
-                .border_style(panel_style(app, Panel::Body)),
+                .border_style(panel_style(app, Panel::Body))
+                .border_type(panel_border_type(app, Panel::Body)),
         ),
         body_area,
     );
@@ -234,7 +246,8 @@ fn render_response(frame: &mut Frame, app: &App, area: Rect) {
             Block::default()
                 .title("RESPONSE")
                 .borders(Borders::ALL)
-                .border_style(panel_style(app, Panel::Response)),
+                .border_style(panel_style(app, Panel::Response))
+                .border_type(panel_border_type(app, Panel::Response)),
         ),
         area,
     );
@@ -366,7 +379,7 @@ fn render_footer(frame: &mut Frame, app: &App, area: Rect) {
         footer[1],
     );
     frame.render_widget(
-        Paragraph::new(" EzCurl ").style(
+        Paragraph::new(" ezcurl ").style(
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),

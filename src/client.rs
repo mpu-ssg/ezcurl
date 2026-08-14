@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use reqwest::tls;
 use reqwest_cookie_store::CookieStoreRwLock;
 
-use crate::{error::EzCurlError, request::HttpRequest, response::HttpResponse};
+use crate::{error::EzcurlError, request::HttpRequest, response::HttpResponse};
 
 pub struct HttpClient {
     client: reqwest::Client,
@@ -28,11 +28,13 @@ impl HttpClient {
         }
     }
 
-    pub async fn send(&self, http_request: &HttpRequest) -> Result<HttpResponse, EzCurlError> {
-        let mut builder = self.client.request(
-            http_request.method().as_reqwest_method(),
-            http_request.url(),
-        );
+    pub async fn send(&self, http_request: &HttpRequest) -> Result<HttpResponse, EzcurlError> {
+        let url = reqwest::Url::parse(http_request.url())
+            .map_err(|_| EzcurlError::InvalidUrl(http_request.url().to_string()))?;
+
+        let mut builder = self
+            .client
+            .request(http_request.method().as_reqwest_method(), url);
 
         for (name, value) in http_request.header_values()? {
             builder = builder.header(name, value);

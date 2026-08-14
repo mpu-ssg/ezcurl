@@ -1,7 +1,7 @@
 use crate::{
     action::Direction,
     editor::{Edit, TextEditor},
-    error::EzCurlError,
+    error::EzcurlError,
 };
 use serde::{Deserialize, Serialize};
 
@@ -113,7 +113,7 @@ impl HttpRequest {
         self.url.text()
     }
 
-    pub fn header_values(&self) -> Result<Vec<(String, String)>, EzCurlError> {
+    pub fn header_values(&self) -> Result<Vec<(String, String)>, EzcurlError> {
         self.headers.values()
     }
 
@@ -287,14 +287,14 @@ impl HeaderEditor {
         self.rows.insert(draft_index, HeaderRow::new(key, value));
     }
 
-    fn values(&self) -> Result<Vec<(String, String)>, EzCurlError> {
+    fn values(&self) -> Result<Vec<(String, String)>, EzcurlError> {
         self.rows
             .iter()
             .filter(|row| !row.is_empty())
             .map(|row| {
                 let key = row.key().trim();
                 if key.is_empty() {
-                    return Err(EzCurlError::InvalidHeader(
+                    return Err(EzcurlError::InvalidHeader(
                         "header name cannot be empty".to_string(),
                     ));
                 }
