@@ -1,12 +1,5 @@
-use anyhow::anyhow;
 use async_trait::async_trait;
-use http::{Response, request::Parts};
-use reqwest::Url;
-use tower::{
-    BoxError, Service, ServiceBuilder, ServiceExt,
-    load::{CompleteOnResponse, PendingRequests},
-    util::BoxCloneSyncService,
-};
+use tower::{Service, ServiceBuilder, util::BoxCloneSyncService};
 
 use crate::domain::client::{
     models::http::HttpError,
@@ -25,59 +18,16 @@ impl ClientService for HttpClient {
 }
 
 impl HttpClient {
-    pub fn new(client: reqwest::Client) -> Self {
-        let service = PendingRequests::new(
-            client
-                .clone()
-                .map_request(move |req: HttpRequest| {
-                    let (
-                        Parts {
-                            uri,
-                            method,
-                            headers,
-                            version,
-                            ..
-                        },
-                        body,
-                    ) = req.into_parts();
-
-                    client
-                        .request(
-                            method,
-                            uri.to_string().parse::<Url>().expect("already parsed"),
-                        )
-                        .headers(headers)
-                        .version(version)
-                        .body(body)
-                        .build()
-                        .expect("parts are supposed valid from their type")
-                })
-                .map_future(|res| async {
-                    let res = res.await?;
-                    let headers = res.headers().clone();
-                    let status = res.status();
-                    let version = res.version();
-                    let body = res.text().await?;
-
-                    Ok::<_, reqwest::Error>(
-                        headers
-                            .into_iter()
-                            .filter_map(|(key, value)| Some((key?, value)))
-                            .fold(
-                                Response::builder().status(status).version(version),
-                                |res, (key, value)| res.header(key, value),
-                            )
-                            .body(body)
-                            .expect("response already parsed by reqwest so it must be valid"),
-                    )
-                }),
-            CompleteOnResponse::default(),
-        );
-        let service = ServiceBuilder::new()
-            .map_err(|err: BoxError| HttpError::from(anyhow!(err)))
-            .buffer(0x2000)
-            .boxed_clone_sync()
-            .service(service);
+    pub fn new<C>(client: C) -> Self
+    where
+        C: Service<HttpRequest, Response = HttpResponse, Error = HttpError>
+            + Clone
+            + Send
+            + Sync
+            + 'static,
+        C::Future: Send + Sync + 'static,
+    {
+        let service = ServiceBuilder::new().boxed_clone_sync().service(client);
         Self(service)
     }
 }
