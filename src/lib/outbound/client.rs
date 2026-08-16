@@ -1,20 +1,20 @@
 use std::{sync::Arc, time::Duration};
 
 use anyhow::anyhow;
-use derive_more::{Constructor, From};
-use futures::{FutureExt, future::BoxFuture};
+use derive_more::From;
+use futures::future::BoxFuture;
 use http::{Response, request::Parts};
 use reqwest::{Client, Url, tls::Version};
 use reqwest_cookie_store::CookieStoreRwLock;
-use tower::{Service, ServiceExt};
+use tower::{Service, ServiceBuilder, util::BoxCloneSyncService};
 
 use crate::domain::client::{
     models::http::HttpError,
     ports::{HttpRequest, HttpResponse},
 };
 
-#[derive(Debug, Clone, Constructor, From)]
-pub struct ReqwestClient(Client);
+#[derive(Debug, Clone, From)]
+pub struct ReqwestClient(BoxCloneSyncService<HttpRequest, HttpResponse, HttpError>);
 
 impl Default for ReqwestClient {
     fn default() -> Self {
@@ -51,51 +51,68 @@ impl Service<HttpRequest> for ReqwestClient {
     }
 
     fn call(&mut self, req: HttpRequest) -> Self::Future {
-        let client = &mut self.0;
-        let req = {
-            let (
-                Parts {
-                    uri,
-                    method,
-                    headers,
-                    version,
-                    ..
-                },
-                body,
-            ) = req.into_parts();
-            client
-                .request(
-                    method,
-                    uri.to_string().parse::<Url>().expect("already parsed"),
-                )
-                .headers(headers)
-                .version(version)
-                .body(body)
-                .build()
-                .expect("parts are supposed valid from their type")
-        };
-        client
-            .map_future(|res| async {
-                let res = res.await?;
-                let headers = res.headers().clone();
-                let status = res.status();
-                let version = res.version();
-                let body = res.text().await?;
-
-                Ok::<_, reqwest::Error>(
-                    headers
-                        .into_iter()
-                        .filter_map(|(key, value)| Some((key?, value)))
-                        .fold(
-                            Response::builder().status(status).version(version),
-                            |res, (key, value)| res.header(key, value),
-                        )
-                        .body(body)
-                        .expect("response already parsed by reqwest so it must be valid"),
-                )
-            })
-            .map_err(|err: reqwest::Error| HttpError::from(anyhow!(err)))
-            .call(req)
-            .boxed()
+        self.0.call(req)
     }
+}
+
+impl ReqwestClient {
+    pub fn new(client: reqwest::Client) -> Self {
+        let inner = ServiceBuilder::new()
+            .map_err(|err| HttpError::from(anyhow::Error::from(err)))
+            .map_request({
+                let client = client.clone();
+                move |req| convert_request_to_service(&client, req)
+            })
+            .map_future(|fut| async {
+                let res = fut.await?;
+                convert_response_from_service(res).await
+            })
+            .boxed_clone_sync()
+            .service(client);
+
+        Self(inner)
+    }
+}
+
+fn convert_request_to_service(client: &reqwest::Client, req: HttpRequest) -> reqwest::Request {
+    let (
+        Parts {
+            uri,
+            method,
+            headers,
+            version,
+            ..
+        },
+        body,
+    ) = req.into_parts();
+
+    client
+        .request(
+            method,
+            uri.to_string().parse::<Url>().expect("already parsed"),
+        )
+        .headers(headers)
+        .version(version)
+        .body(body)
+        .build()
+        .expect("parts are supposed valid from their type")
+}
+
+async fn convert_response_from_service(
+    res: reqwest::Response,
+) -> Result<HttpResponse, reqwest::Error> {
+    let headers = res.headers().clone();
+    let status = res.status();
+    let version = res.version();
+    let body = res.text().await?;
+
+    Ok(headers
+        .into_iter()
+        .filter_map(|(key, value)| Some((key?, value)))
+        .fold(
+            Response::builder().status(status).version(version),
+            |res, (key, value)| res.header(key, value),
+        )
+        .body(body)
+        .expect("response already parsed by reqwest so it must be valid"))
 }
