@@ -30,7 +30,7 @@ impl HttpClient {
 
     pub async fn send(&self, http_request: &HttpRequest) -> Result<HttpResponse, EzcurlError> {
         let url = reqwest::Url::parse(http_request.url())
-            .map_err(|_| EzcurlError::InvalidUrl(http_request.url().to_string()))?;
+            .map_err(|_| EzcurlError::InvalidUrl(http_request.url()))?;
 
         let mut builder = self
             .client

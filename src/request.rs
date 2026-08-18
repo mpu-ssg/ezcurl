@@ -3,6 +3,8 @@ use crate::{
     editor::{Edit, TextEditor},
     error::EzcurlError,
 };
+use ezcurl::domain;
+use http::{Extensions, HeaderMap, Version, request::Parts};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -141,6 +143,23 @@ impl HttpRequest {
 
     pub fn header_editor_mut(&mut self) -> &mut HeaderEditor {
         &mut self.headers
+    }
+}
+
+impl TryFrom<HttpRequest> for domain::client::ports::HttpRequest {
+    type Error = EzcurlError;
+
+    fn try_from(req: HttpRequest) -> Result<Self, Self::Error> {
+        let uri: http::Uri = req.url().parse()?;
+        let method = req.method().as_reqwest_method();
+        let headers: HeaderMap = req.header_values()?.into_iter().collect();
+        let body = req
+            .body()
+            .map(|bytes| String::from_utf8(body).expect("body must be utf-8 compatible"));
+
+        let req = domain::client::ports::HttpRequest::builder();
+
+        todo!()
     }
 }
 

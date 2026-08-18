@@ -1,6 +1,7 @@
+use ezcurl::domain::client::ports::ClientService;
+
 use crate::{
     action::{Action, Direction},
-    client::HttpClient,
     editor::{Edit, TextEditor},
     history::{HistoryEntry, HistoryStore},
     request::{HeaderPart, HttpRequest, RequestField},
@@ -24,7 +25,10 @@ pub enum Panel {
     Response,
 }
 
-pub struct App {
+pub struct App<C>
+where
+    C: ClientService,
+{
     mode: AppMode,
     focused_panel: Panel,
     response_origin: Panel,
@@ -32,7 +36,7 @@ pub struct App {
     request: HttpRequest,
     response: Option<HttpResponse>,
     response_error: Option<String>,
-    client: HttpClient,
+    client: C,
 
     history: Vec<HistoryEntry>,
     history_store: HistoryStore,
@@ -43,8 +47,11 @@ pub struct App {
     should_quit: bool,
 }
 
-impl App {
-    pub fn new(request: HttpRequest, client: HttpClient, history_store: HistoryStore) -> Self {
+impl<C> App<C>
+where
+    C: ClientService,
+{
+    pub fn new(request: HttpRequest, client: C, history_store: HistoryStore) -> Self {
         let (mut history, history_storage_error) = match history_store.load() {
             Ok(history) => (history, None),
             Err(error) => (Vec::new(), Some(error.to_string())),
@@ -233,7 +240,7 @@ impl App {
     async fn send_request(&mut self) {
         self.mode = AppMode::Normal;
         let request = self.request.clone();
-        let result = self.client.send(&request).await;
+        let result = self.client.execute(request.try_into()?).await;
 
         let (response, error) = match result {
             Ok(response) => (Some(response), None),
